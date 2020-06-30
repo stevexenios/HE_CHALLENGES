@@ -1,0 +1,129 @@
+####################################################################################################
+# STEVE G MWANGI 
+##################################################################################################
+setwd("C:/Users/steve/OneDrive/Desktop/HACKER_EARTH_CHALLENGE/R/Code_in_R")
+###################################################################################################
+# Loading libraries
+library(data.table)
+#install.packages("mlr3")
+#library(mlr3)
+install.packages("mlr")
+library(mlr)
+###################################################################################################
+# Set variable names
+setcol <- c(
+  "Employee_ID",
+  "Gender",
+  "Age",
+  "Education",
+  "Relationship_Status",
+  "Hometown",
+  "Unit",
+  "Decision_skill_possess",
+  "Time_of_service",
+  "Post_Level",
+  "Pay_Scale",
+  "Time_since_promotion",
+  "growth_rate",
+  "Travel_Rate",
+  "Work_Life_balance",
+  "Compensation_and_Benefits",
+  "VAR1",
+  "VAR2",
+  "VAR3",
+  "VAR4",
+  "VAR5",
+  "VAR6",
+  "VAR7",
+  "Attrition_rate"
+)
+###################################################################################################
+# Loading Data
+train <- read.csv("Train.csv", header = F, sep = ",", col.names = setcol, skip = 1, na.strings = c(" ?", stringAsFactors = F))
+test <- read.csv("Test.csv", header =  F, sep = ",", col.names = setcol, skip = 1, na.strings = c(" ?"), stringsAsFactors = F)
+?read.csv
+setDT(train)
+setDT(test)
+
+# Data Sanity
+dim(train)
+dim(test)
+str(train)
+str(test)
+
+# Check missing values
+# Binary in nature check if data is imbalanced
+train[,.N/nrow(train), Attrition_rate]
+test[,.N/nrow(test), Attrition_rate]
+
+# Remove extra characters
+test[, Attrition_rate := substr(Attrition_rate, start = 1, stop = nchar(Attrition_rate) - 1)]
+train[, Attrition_rate := substr(Attrition_rate, start = 1, stop = nchar(Attrition_rate) - 1)]
+# Remove leading whitespace
+library(stringr)
+char_col <- colnames(train)[sapply(test, is.character)]
+
+for (i in char_col)
+  set(train, j = i, value = str_trim(train[[i]], side = "left"))
+
+# Set all character variables as factor
+#fact_col <- colnames(train)[sapply(train, is.character)]
+
+for(i in fact_col)
+  set(train, j = i, value = factor(train[[i]]))
+
+for(i in fact_col)
+  set(test, j = i, value = factor(test[[i]]))
+
+# Data Sanity
+dim(train)
+dim(test)
+str(train)
+str(test)
+###################################################################################################
+#impute missing values
+imp1 <- impute(obj = as.data.frame(train), target = "Attrition_rate",classes = list(integer = imputeMedian(), factor = imputeMode()))
+imp2 <- impute(obj = as.data.frame(test), target = "Attrition_rate",classes = list(integer = imputeMedian(), factor = imputeMode()))
+
+train <- setDT(imp1$data)
+test <- setDT(imp2$data) 
+
+###################################################################################################
+# DL
+#load the package
+# install.packages("h2o")
+require(h2o)
+
+str(train)
+str(test)
+
+#start h2o
+localH2o <- h2o.init(nthreads = -1, max_mem_size = "20G")
+
+#load data on H2o
+trainh2o <- as.h2o(train)
+
+testh2o <- as.h2o(test)
+
+#set variables
+y <- "Attrition_rate"
+x <- setdiff(colnames(trainh2o),y)
+
+#train the model - without hidden layer
+deepmodel <- h2o.deeplearning(x = x
+                              ,y = y
+                              ,training_frame = trainh2o
+                              ,standardize = T
+                              ,model_id = "deep_model"
+                              ,activation = "Rectifier"
+                              ,epochs = 100
+                              ,seed = 1
+                              ,nfolds = 5
+                              ,variable_importances = T)
+
+#compute variable importance and performance
+h2o.varimp_plot(deepmodel,num_of_features = 20)
+h2o.performance(deepmodel,xval = T)
+#84.5 % CV accuracy
+###################################################################################################
+# 
