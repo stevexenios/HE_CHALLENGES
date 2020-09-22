@@ -1,6 +1,6 @@
 # HE_CHALLENGES
 
-##First Challenge
+## First Challenge
 Used Neural Networks with multiple hidden layers
 
 Approach:
